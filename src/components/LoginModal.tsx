@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Mail, Lock, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useUser } from '@/lib/auth-context';
 
 interface LoginModalProps {
@@ -126,13 +126,12 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 邮箱
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-transparent"
                 />
               </div>
             </div>
@@ -142,13 +141,12 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
                 密码
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="至少 6 位字符"
-                  className="w-full pl-10 pr-11 py-3 rounded-xl border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-transparent"
+                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-[var(--color-border)] bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-light)] focus:border-transparent"
                 />
                 <button
                   type="button"
