@@ -50,7 +50,7 @@ export default function Home() {
           </div>
           <div>
             <h1 className="text-lg font-extrabold bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] bg-clip-text text-transparent leading-tight">
-              Itache
+              Itasha
             </h1>
             <p className="text-[10px] text-[var(--color-text-secondary)] -mt-0.5">
               痛车地图

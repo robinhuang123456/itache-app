@@ -3,7 +3,7 @@ import './globals.css';
 import { UserProvider } from '@/lib/auth-context';
 
 export const metadata: Metadata = {
-  title: 'Itache - 痛车地图',
+  title: 'Itasha - 痛车地图',
   description: '发现身边的痛车，连接二次元车友社区',
 };
 
