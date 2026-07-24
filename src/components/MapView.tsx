@@ -112,6 +112,8 @@ export default function MapView({ allCars, searchQuery }: MapViewProps) {
 
     const AMap = window.AMap;
 
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
     // 使用 requestAnimationFrame 确保容器布局完成后再初始化地图
     const initTimer = requestAnimationFrame(() => {
       if (!mapRef.current || mapInstanceRef.current) return;
@@ -127,11 +129,24 @@ export default function MapView({ allCars, searchQuery }: MapViewProps) {
 
       mapInstanceRef.current.addControl(new AMap.Scale());
 
-      // 标记地图已就绪，触发标记点 effect
-      setMapReady(true);
+      // 监听地图完全加载完成事件后再渲染marker
+      // 蜂窝网络下地图内部模块加载较慢，立即添加marker可能失败
+      let completeHandled = false;
+      const onComplete = () => {
+        if (completeHandled) return;
+        completeHandled = true;
+        setMapReady(true);
+      };
+      mapInstanceRef.current.on('complete', onComplete);
+
+      // 超时兜底：8秒后强制设置为ready，防止complete事件不触发
+      fallbackTimer = setTimeout(onComplete, 8000);
     });
 
-    return () => cancelAnimationFrame(initTimer);
+    return () => {
+      cancelAnimationFrame(initTimer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
   }, [ready]);
 
   // 全国视图：显示城市聚合标记

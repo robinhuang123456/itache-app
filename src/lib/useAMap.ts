@@ -34,9 +34,10 @@ function loadAMapScript(): Promise<any> {
   if (loadPromise) return loadPromise;
 
   loadPromise = new Promise((resolve, reject) => {
-    // 设置安全密钥（必须在脚本加载前设置）
+    // 使用代理方式安全验证，避免蜂窝网络下 restapi.amap.com 被拦截
+    // 代理路由 /api/_AMapService/* → https://restapi.amap.com/v3/_AMapService/*
     window._AMapSecurityConfig = {
-      securityJsCode: AMAP_SECURITY_CODE,
+      serviceHost: `${window.location.origin}/api/_AMapService`,
     };
 
     const script = document.createElement('script');
