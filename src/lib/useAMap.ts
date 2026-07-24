@@ -7,6 +7,11 @@ const AMAP_KEY = '7d14ec87a85379bc158b6a778bd05a72';
 const AMAP_SECURITY_CODE = '21dd8b2c6ac48c6bb6972c8fcb205d7f';
 const AMAP_VERSION = '2.0';
 
+// 超时和重试配置
+const LOAD_TIMEOUT = 15000; // 15秒超时
+const MAX_RETRIES = 2; // 最多重试2次
+const RETRY_DELAY = 3000; // 重试间隔3秒
+
 // 高德地图类型声明
 declare global {
   interface Window {
@@ -17,6 +22,7 @@ declare global {
 }
 
 let loadPromise: Promise<any> | null = null;
+let retryCount = 0;
 
 function loadAMapScript(): Promise<any> {
   if (typeof window === 'undefined') return Promise.reject('SSR');
@@ -36,18 +42,46 @@ function loadAMapScript(): Promise<any> {
     const script = document.createElement('script');
     script.src = `https://webapi.amap.com/maps?v=${AMAP_VERSION}&key=${AMAP_KEY}&plugin=AMap.Scale,AMap.ToolBar,AMap.MarkerClusterer,AMap.Geocoder`;
     script.async = true;
+
+    // 超时定时器
+    const timer = setTimeout(() => {
+      // 超时后移除script，让onerror触发
+      script.onload = null;
+      script.onerror = null;
+      script.remove();
+      reject('AMap load timeout');
+    }, LOAD_TIMEOUT);
+
     script.onload = () => {
+      clearTimeout(timer);
       if (window.AMap) {
+        retryCount = 0; // 加载成功，重置重试计数
         resolve(window.AMap);
       } else {
         reject('AMap failed to initialize');
       }
     };
-    script.onerror = () => reject('Failed to load AMap script');
+
+    script.onerror = () => {
+      clearTimeout(timer);
+      reject('Failed to load AMap script');
+    };
+
     document.head.appendChild(script);
   });
 
-  return loadPromise;
+  // 加载失败时自动重试
+  return loadPromise.catch((err) => {
+    loadPromise = null; // 重置，允许下次创建新Promise
+    retryCount++;
+    if (retryCount <= MAX_RETRIES) {
+      console.warn(`AMap load failed (${err}), retrying ${retryCount}/${MAX_RETRIES} after ${RETRY_DELAY}ms...`);
+      return new Promise((resolve) => setTimeout(resolve, RETRY_DELAY)).then(() => loadAMapScript());
+    } else {
+      console.error(`AMap load failed after ${MAX_RETRIES} retries:`, err);
+      throw err;
+    }
+  });
 }
 
 export function useAMap() {

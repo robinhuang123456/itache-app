@@ -21,6 +21,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
+      <head>
+        {/* 预连接高德地图域名，加速蜂窝网络下的首次加载 */}
+        <link rel="preconnect" href="https://webapi.amap.com" />
+        <link rel="preconnect" href="https://restapi.amap.com" />
+        <link rel="preconnect" href="https://vdata.amap.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://webapi.amap.com" />
+        <link rel="dns-prefetch" href="https://restapi.amap.com" />
+        <link rel="dns-prefetch" href="https://vdata.amap.com" />
+      </head>
       <body>
         <UserProvider>{children}</UserProvider>
       </body>
