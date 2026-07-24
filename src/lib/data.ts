@@ -1720,3 +1720,110 @@ function loadUserCarsFromLocal(): Car[] {
   }
   return [];
 }
+
+// ======== 用户车辆管理（我的痛车）========
+
+// 根据用户ID查询该用户添加的所有车辆
+export async function getUserCars(userId: string): Promise<Car[]> {
+  try {
+    const { data, error } = await supabase
+      .from('cars')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_user_added', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('查询用户车辆失败:', error.message);
+      return [];
+    }
+
+    if (!data) return [];
+
+    return data.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      nickname: (row.nickname as string) || '匿名痛车人',
+      brand: row.brand as string,
+      model: row.model as string,
+      ipTags: (row.ip_tags as string[]) || [],
+      city: row.city as string,
+      cityName: row.city_name as string,
+      contactType: row.contact_type as 'wechat' | 'qq',
+      contactValue: row.contact_value as string,
+      contactType2: (row.contact_type2 as 'wechat' | 'qq') || undefined,
+      contactValue2: (row.contact_value2 as string) || undefined,
+      photos: (row.photos as string[]) || [],
+      lat: row.lat as number,
+      lng: row.lng as number,
+      isVisible: true,
+      createdAt: (row.created_at as string)?.split('T')[0] || new Date().toISOString().split('T')[0],
+      province: (row.province as string) || undefined,
+      district: (row.district as string) || undefined,
+      avatar: (row.avatar as string) || undefined,
+      bio: (row.bio as string) || undefined,
+      hobbies: (row.hobbies as string[]) || undefined,
+      gender: (row.gender as 'male' | 'female') || undefined,
+      occupation: (row.occupation as string) || undefined,
+    }));
+  } catch (err) {
+    console.error('查询用户车辆异常:', err);
+    return [];
+  }
+}
+
+// 更新 Supabase 中指定车辆的所有字段
+export async function updateCarInSupabase(car: Car, carId: string): Promise<string | null> {
+  try {
+    const { error } = await supabase.from('cars').update({
+      nickname: car.nickname,
+      brand: car.brand,
+      model: car.model,
+      ip_tags: car.ipTags,
+      city: car.city,
+      city_name: car.cityName,
+      contact_type: car.contactType,
+      contact_value: car.contactValue,
+      contact_type2: car.contactType2 || null,
+      contact_value2: car.contactValue2 || null,
+      photos: car.photos,
+      lat: car.lat,
+      lng: car.lng,
+      is_visible: car.isVisible,
+      province: car.province || null,
+      district: car.district || null,
+      avatar: car.avatar || null,
+      bio: car.bio || null,
+      hobbies: car.hobbies || null,
+      gender: car.gender || null,
+      occupation: car.occupation || null,
+    }).eq('id', carId);
+
+    if (error) {
+      console.error('更新车辆失败:', error.message);
+      return `更新失败: ${error.message}`;
+    }
+    return null;
+  } catch (err) {
+    console.error('更新车辆异常:', err);
+    return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
+  }
+}
+
+// 从 Supabase 删除指定车辆
+export async function deleteCarFromSupabase(carId: string): Promise<string | null> {
+  try {
+    const { error } = await supabase
+      .from('cars')
+      .delete()
+      .eq('id', carId);
+
+    if (error) {
+      console.error('删除车辆失败:', error.message);
+      return `删除失败: ${error.message}`;
+    }
+    return null;
+  } catch (err) {
+    console.error('删除车辆异常:', err);
+    return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
+  }
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -16,6 +16,7 @@ import {
   BRAND_MODELS,
   addCar,
   saveCarToSupabase,
+  updateCarInSupabase,
   type Car,
 } from '@/lib/data';
 import { compressImage } from '@/lib/imageCompress';
@@ -27,9 +28,12 @@ interface AddCarModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCarAdded: () => void;
+  /** 传入车辆对象时进入编辑模式，null 为新增模式 */
+  editingCar: Car | null;
 }
 
-export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModalProps) {
+export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }: AddCarModalProps) {
+  const isEditMode = !!editingCar;
   const { user, openLoginModal } = useUser();
   const [selectedBrand, setSelectedBrand] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
@@ -55,6 +59,60 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModal
   const [successMsg, setSuccessMsg] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // 编辑模式：打开时预填表单
+  useEffect(() => {
+    if (isOpen && editingCar) {
+      setSelectedBrand(editingCar.brand);
+      setSelectedModel(editingCar.model);
+      setSelectedIpTags(editingCar.ipTags || []);
+      setLocation({
+        province: editingCar.province || '',
+        city: editingCar.cityName || '',
+        district: editingCar.district || '',
+      });
+      if (editingCar.contactType === 'wechat') {
+        setWechatValue(editingCar.contactValue);
+        setQqValue(editingCar.contactValue2 || '');
+      } else {
+        setWechatValue(editingCar.contactValue2 || '');
+        setQqValue(editingCar.contactValue);
+      }
+      setNickname(editingCar.nickname);
+      setGender(editingCar.gender || '');
+      setOccupation(editingCar.occupation || '');
+      setPhotos(editingCar.photos || []);
+      setAvatar(editingCar.avatar || '');
+      setAvatarType(editingCar.avatar ? (editingCar.avatar?.startsWith('/') ? (editingCar.avatar.includes('male') ? 'male' : 'female') : 'custom') : 'none');
+      setBio(editingCar.bio || '');
+      setHobbies(editingCar.hobbies || []);
+    } else if (!isOpen) {
+      // 关闭时重置（仅新增模式关闭时清空，编辑模式切换不重复清空）
+      if (!editingCar) {
+        resetForm();
+      }
+    }
+  }, [isOpen, editingCar]);
+
+  const resetForm = () => {
+    setSelectedBrand('');
+    setSelectedModel('');
+    setSelectedIpTags([]);
+    setLocation({ province: '', city: '', district: '' });
+    setWechatValue('');
+    setQqValue('');
+    setNickname('');
+    setGender('');
+    setOccupation('');
+    setPhotos([]);
+    setAvatar('');
+    setAvatarType('none');
+    setBio('');
+    setHobbies([]);
+    setHobbyInput('');
+    setErrorMsg('');
+    setSuccessMsg('');
+  };
 
   const brands = Object.keys(BRAND_MODELS);
   const models = selectedBrand ? BRAND_MODELS[selectedBrand] || [] : [];
@@ -156,7 +214,7 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModal
 
     // 未登录 → 打开登录弹窗
     if (!user) {
-      setErrorMsg('请先登录后再添加痛车');
+      setErrorMsg('请先登录后再操作');
       openLoginModal();
       return;
     }
@@ -170,85 +228,100 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModal
     setSubmitting(true);
 
     try {
-      // 通过高德地理编码获取坐标
-      const fullAddress = buildAddress(location.province, location.city, location.district);
-      const geoResult = await geocodeAddress(fullAddress);
+      if (isEditMode && editingCar) {
+        // ====== 编辑模式：直接更新现有车辆 ======
+        const updatedCar: Car = {
+          ...editingCar,
+          nickname: nickname.trim() || '匿名痛车人',
+          brand: selectedBrand,
+          model: selectedModel,
+          ipTags: selectedIpTags,
+          city: editingCar.city,
+          cityName: shortenCityName(location.city) || location.city,
+          contactType: wechatValue.trim() ? 'wechat' : 'qq',
+          contactValue: wechatValue.trim() || qqValue.trim(),
+          contactType2: wechatValue.trim() && qqValue.trim() ? 'qq' : undefined,
+          contactValue2: wechatValue.trim() && qqValue.trim() ? qqValue.trim() : undefined,
+          photos,
+          province: location.province || undefined,
+          district: location.district || undefined,
+          avatar: avatar || undefined,
+          bio: bio || undefined,
+          hobbies: hobbies.length > 0 ? hobbies : undefined,
+          gender: gender as 'male' | 'female',
+          occupation: occupation.trim() || undefined,
+        };
 
-      // 如果地理编码失败，使用省会城市作为兜底
-      let lat = 35.0;
-      let lng = 105.0;
-      if (geoResult) {
-        lat = geoResult.lat;
-        lng = geoResult.lng;
+        const updateError = await updateCarInSupabase(updatedCar);
+        if (updateError) {
+          setErrorMsg(updateError);
+          setSubmitting(false);
+          return;
+        }
+
+        setSuccessMsg('修改保存成功！');
+        onCarAdded();
+        setTimeout(() => {
+          setSuccessMsg('');
+          setSubmitting(false);
+          onClose();
+        }, 1500);
       } else {
-        setErrorMsg('无法获取精确坐标，将使用近似位置');
+        // ====== 新增模式 ======
+        const fullAddress = buildAddress(location.province, location.city, location.district);
+        const geoResult = await geocodeAddress(fullAddress);
+
+        let lat = 35.0;
+        let lng = 105.0;
+        if (geoResult) {
+          lat = geoResult.lat;
+          lng = geoResult.lng;
+        } else {
+          setErrorMsg('无法获取精确坐标，将使用近似位置');
+        }
+
+        const cityId = `custom-${location.province}-${location.city}`;
+        const cityName = shortenCityName(location.city) || location.city;
+
+        const newCar = addCar({
+          nickname: nickname.trim() || '匿名痛车人',
+          brand: selectedBrand,
+          model: selectedModel,
+          ipTags: selectedIpTags,
+          city: cityId,
+          cityName,
+          contactType: wechatValue.trim() ? 'wechat' : 'qq',
+          contactValue: (wechatValue.trim() || qqValue.trim()),
+          contactType2: wechatValue.trim() && qqValue.trim() ? 'qq' : undefined,
+          contactValue2: wechatValue.trim() && qqValue.trim() ? qqValue.trim() : undefined,
+          photos,
+          lat: lat + (Math.random() - 0.5) * 0.02,
+          lng: lng + (Math.random() - 0.5) * 0.02,
+          province: location.province,
+          district: location.district,
+          avatar: avatar || undefined,
+          bio: bio || undefined,
+          hobbies: hobbies.length > 0 ? hobbies : undefined,
+          gender: gender as 'male' | 'female',
+          occupation: occupation.trim() || undefined,
+        });
+
+        const saveError = await saveCarToSupabase(newCar, user?.id);
+        if (saveError) {
+          setErrorMsg(saveError);
+          setSubmitting(false);
+          return;
+        }
+
+        setSuccessMsg('痛车添加成功！');
+        resetForm();
+        onCarAdded();
+        setTimeout(() => {
+          setSuccessMsg('');
+          setSubmitting(false);
+          onClose();
+        }, 1500);
       }
-
-      // 生成城市ID：使用省份+城市名作为唯一标识
-      const cityId = `custom-${location.province}-${location.city}`;
-      const cityName = shortenCityName(location.city) || location.city;
-
-      const newCar = addCar({
-        nickname: nickname.trim() || '匿名痛车人',
-        brand: selectedBrand,
-        model: selectedModel,
-        ipTags: selectedIpTags,
-        city: cityId,
-        cityName,
-        contactType: wechatValue.trim() ? 'wechat' : 'qq',
-        contactValue: (wechatValue.trim() || qqValue.trim()),
-        contactType2: wechatValue.trim() && qqValue.trim() ? 'qq' : undefined,
-        contactValue2: wechatValue.trim() && qqValue.trim() ? qqValue.trim() : undefined,
-        photos,
-        lat: lat + (Math.random() - 0.5) * 0.02,
-        lng: lng + (Math.random() - 0.5) * 0.02,
-        province: location.province,
-        district: location.district,
-        avatar: avatar || undefined,
-        bio: bio || undefined,
-        hobbies: hobbies.length > 0 ? hobbies : undefined,
-        gender: gender as 'male' | 'female',
-        occupation: occupation.trim() || undefined,
-      });
-
-      // 保存到 Supabase（绑定用户 ID）
-      const saveError = await saveCarToSupabase(newCar, user?.id);
-
-      if (saveError) {
-        setErrorMsg(saveError);
-        setSubmitting(false);
-        return;
-      }
-
-      // 成功
-      setSuccessMsg('痛车添加成功！');
-
-      // 重置表单
-      setSelectedBrand('');
-      setSelectedModel('');
-      setSelectedIpTags([]);
-      setLocation({ province: '', city: '', district: '' });
-      setWechatValue('');
-      setQqValue('');
-      setNickname('');
-      setGender('');
-      setOccupation('');
-      setPhotos([]);
-      setAvatar('');
-      setAvatarType('none');
-      setBio('');
-      setHobbies([]);
-      setHobbyInput('');
-
-      // 通知父组件刷新
-      onCarAdded();
-
-      // 1.5秒后关闭弹窗
-      setTimeout(() => {
-        setSuccessMsg('');
-        setSubmitting(false);
-        onClose();
-      }, 1500);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '提交失败，请重试');
       setSubmitting(false);
@@ -275,7 +348,7 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModal
           >
             <X className="w-4 h-4" />
           </button>
-          <h2 className="text-base font-bold">添加我的痛车</h2>
+          <h2 className="text-base font-bold">{isEditMode ? '编辑我的痛车' : '添加我的痛车'}</h2>
           <div className="w-8" />
         </div>
 
@@ -705,12 +778,12 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded }: AddCarModal
             ) : successMsg ? (
               <>
                 <CheckCircle2 className="w-5 h-5" />
-                添加成功
+                {isEditMode ? '修改成功' : '添加成功'}
               </>
             ) : (
               <>
                 <Plus className="w-5 h-5" />
-                添加痛车
+                {isEditMode ? '保存修改' : '添加痛车'}
               </>
             )}
           </button>

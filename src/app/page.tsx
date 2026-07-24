@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MapPin } from 'lucide-react';
+import { Plus, MapPin, Car as CarIcon } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import MapView from '@/components/MapView';
 import AddCarModal from '@/components/AddCarModal';
 import LoginButton from '@/components/LoginButton';
 import LoginModal from '@/components/LoginModal';
+import MyCarsModal from '@/components/MyCarsModal';
 import { useUser } from '@/lib/auth-context';
 import { getAllCars, type Car } from '@/lib/data';
 
@@ -14,6 +15,8 @@ export default function Home() {
   const [allCars, setAllCars] = useState<Car[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMyCars, setShowMyCars] = useState(false);
+  const [editingCar, setEditingCar] = useState<Car | null>(null);
   const { user, isOpenLoginModal, closeLoginModal } = useUser();
 
   // 加载所有车辆数据（异步，从 Supabase 加载）
@@ -26,10 +29,16 @@ export default function Home() {
     loadCars();
   }, [loadCars]);
 
-  // 处理车辆添加完成
+  // 处理车辆添加/编辑完成
   const handleCarAdded = useCallback(() => {
     loadCars();
   }, [loadCars]);
+
+  // 处理编辑车辆请求
+  const handleEditCar = useCallback((car: Car) => {
+    setEditingCar(car);
+    setShowAddModal(true);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg)]">
@@ -51,8 +60,18 @@ export default function Home() {
 
         <div className="flex items-center gap-2">
           <LoginButton />
+          {user && (
+            <button
+              onClick={() => setShowMyCars(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-[var(--color-text)] hover:bg-gray-200 transition-colors"
+              title="我的痛车"
+            >
+              <CarIcon className="w-3.5 h-3.5" />
+              我的痛车
+            </button>
+          )}
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => { setEditingCar(null); setShowAddModal(true); }}
             className="btn-gradient flex items-center gap-1.5 text-sm"
           >
             <Plus className="w-4 h-4" />
@@ -75,11 +94,20 @@ export default function Home() {
         searchQuery={searchQuery || null}
       />
 
-      {/* 添加车辆弹窗 */}
+      {/* 添加/编辑车辆弹窗 */}
       <AddCarModal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => { setShowAddModal(false); setEditingCar(null); }}
         onCarAdded={handleCarAdded}
+        editingCar={editingCar}
+      />
+
+      {/* 我的痛车弹窗 */}
+      <MyCarsModal
+        isOpen={showMyCars}
+        onClose={() => setShowMyCars(false)}
+        onCarUpdated={handleCarAdded}
+        onEditCar={handleEditCar}
       />
 
       {/* 登录/注册弹窗 */}
