@@ -1774,7 +1774,8 @@ export async function getUserCars(userId: string): Promise<Car[]> {
 // 更新 Supabase 中指定车辆的所有字段
 export async function updateCarInSupabase(car: Car, carId: string): Promise<string | null> {
   try {
-    const { error } = await supabase.from('cars').update({
+    console.log('[updateCarInSupabase] 开始更新车辆:', { carId, nickname: car.nickname, brand: car.brand, model: car.model });
+    const { data, error } = await supabase.from('cars').update({
       nickname: car.nickname,
       brand: car.brand,
       model: car.model,
@@ -1796,15 +1797,16 @@ export async function updateCarInSupabase(car: Car, carId: string): Promise<stri
       hobbies: car.hobbies || null,
       gender: car.gender || null,
       occupation: car.occupation || null,
-    }).eq('id', carId);
+    }).eq('id', carId).select();
 
     if (error) {
-      console.error('更新车辆失败:', error.message);
+      console.error('[updateCarInSupabase] 更新失败:', error.message, error);
       return `更新失败: ${error.message}`;
     }
+    console.log('[updateCarInSupabase] 更新成功, 返回数据:', data);
     return null;
   } catch (err) {
-    console.error('更新车辆异常:', err);
+    console.error('[updateCarInSupabase] 异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
   }
 }
@@ -1812,18 +1814,21 @@ export async function updateCarInSupabase(car: Car, carId: string): Promise<stri
 // 从 Supabase 删除指定车辆
 export async function deleteCarFromSupabase(carId: string): Promise<string | null> {
   try {
-    const { error } = await supabase
+    console.log('[deleteCarFromSupabase] 开始删除车辆:', carId);
+    const { data, error } = await supabase
       .from('cars')
       .delete()
-      .eq('id', carId);
+      .eq('id', carId)
+      .select();
 
     if (error) {
-      console.error('删除车辆失败:', error.message);
+      console.error('[deleteCarFromSupabase] 删除失败:', error.message, error);
       return `删除失败: ${error.message}`;
     }
+    console.log('[deleteCarFromSupabase] 删除成功, 返回数据:', data);
     return null;
   } catch (err) {
-    console.error('删除车辆异常:', err);
+    console.error('[deleteCarFromSupabase] 异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
   }
 }
