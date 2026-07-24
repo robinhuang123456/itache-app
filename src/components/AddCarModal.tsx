@@ -252,7 +252,7 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           occupation: occupation.trim() || undefined,
         };
 
-        const updateError = await updateCarInSupabase(updatedCar);
+        const updateError = await updateCarInSupabase(updatedCar, editingCar.id);
         if (updateError) {
           setErrorMsg(updateError);
           setSubmitting(false);
