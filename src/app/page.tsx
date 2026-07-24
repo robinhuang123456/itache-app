@@ -17,7 +17,7 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMyCars, setShowMyCars] = useState(false);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
-  const { user, isOpenLoginModal, closeLoginModal } = useUser();
+  const { user, isOpenLoginModal, closeLoginModal, openLoginModal } = useUser();
 
   // 加载所有车辆数据（异步，从 Supabase 加载）
   const loadCars = useCallback(async () => {
@@ -71,7 +71,14 @@ export default function Home() {
             </button>
           )}
           <button
-            onClick={() => { setEditingCar(null); setShowAddModal(true); }}
+            onClick={() => {
+              if (!user) {
+                openLoginModal();
+                return;
+              }
+              setEditingCar(null);
+              setShowAddModal(true);
+            }}
             className="btn-gradient flex items-center gap-1.5 text-sm"
           >
             <Plus className="w-4 h-4" />
