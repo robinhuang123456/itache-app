@@ -32,7 +32,7 @@ export default function CarCard({ car, onClose }: CarCardProps) {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] animate-slide-up">
+    <div className="fixed bottom-8 left-0 right-0 z-[100] animate-slide-up">
       <div className="glass rounded-t-2xl px-5 pt-4 pb-6 max-w-lg mx-auto shadow-[0_-4px_24px_rgba(124,58,237,0.15)]">
         {/* 关闭按钮 */}
         <button
