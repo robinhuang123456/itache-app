@@ -14,7 +14,6 @@ import {
 import {
   IP_TAGS,
   BRAND_MODELS,
-  COST_RANGES,
   DESIGN_SOURCES,
   addCar,
   saveCarToSupabase,
@@ -54,7 +53,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
   const [hobbyInput, setHobbyInput] = useState('');
   const [showCustomIp, setShowCustomIp] = useState(false);
   const [customIpInput, setCustomIpInput] = useState('');
-  const [costRange, setCostRange] = useState('');
   const [shopName, setShopName] = useState('');
   const [designSource, setDesignSource] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -91,7 +89,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
       setAvatarType(editingCar.avatar ? (editingCar.avatar?.startsWith('/') ? (editingCar.avatar.includes('male') ? 'male' : 'female') : 'custom') : 'none');
       setBio(editingCar.bio || '');
       setHobbies(editingCar.hobbies || []);
-      setCostRange(editingCar.costRange || '');
       setShopName(editingCar.shopName || '');
       setDesignSource(editingCar.designSource || '');
     } else if (!isOpen) {
@@ -118,7 +115,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
     setBio('');
     setHobbies([]);
     setHobbyInput('');
-    setCostRange('');
     setShopName('');
     setDesignSource('');
     setErrorMsg('');
@@ -261,7 +257,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           hobbies: hobbies.length > 0 ? hobbies : undefined,
           gender: gender as 'male' | 'female',
           occupation: occupation.trim() || undefined,
-          costRange: costRange || undefined,
           shopName: shopName.trim() || undefined,
           designSource: designSource || undefined,
         };
@@ -318,7 +313,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           hobbies: hobbies.length > 0 ? hobbies : undefined,
           gender: gender as 'male' | 'female',
           occupation: occupation.trim() || undefined,
-          costRange: costRange || undefined,
           shopName: shopName.trim() || undefined,
           designSource: designSource || undefined,
         });
@@ -768,21 +762,6 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
               <span className="text-xs font-normal text-[var(--color-text-secondary)] ml-1">选填，帮助其他车友参考</span>
             </label>
             <div className="space-y-3">
-              {/* 花费区间 */}
-              <div>
-                <label className="block text-xs text-[var(--color-text-secondary)] mb-1.5">花费区间</label>
-                <select
-                  value={costRange}
-                  onChange={(e) => setCostRange(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-white outline-none focus:border-[var(--color-primary-light)] transition-colors appearance-none"
-                >
-                  <option value="">请选择花费区间</option>
-                  {COST_RANGES.map((range) => (
-                    <option key={range} value={range}>{range}</option>
-                  ))}
-                </select>
-              </div>
-
               {/* 施工店铺 */}
               <div>
                 <label className="block text-xs text-[var(--color-text-secondary)] mb-1.5">施工店铺</label>

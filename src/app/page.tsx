@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, MapPin, Car as CarIcon, Store } from 'lucide-react';
+import { Plus, MapPin, Car as CarIcon } from 'lucide-react';
 import FilterBar from '@/components/FilterBar';
 import MapView from '@/components/MapView';
 import AddCarModal from '@/components/AddCarModal';
 import LoginButton from '@/components/LoginButton';
 import LoginModal from '@/components/LoginModal';
 import MyCarsModal from '@/components/MyCarsModal';
-import ShopsModal from '@/components/ShopsModal';
 import { useUser } from '@/lib/auth-context';
 import { getAllCars, type Car } from '@/lib/data';
 
@@ -17,7 +16,6 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMyCars, setShowMyCars] = useState(false);
-  const [showShops, setShowShops] = useState(false);
   const [mapCityId, setMapCityId] = useState<string | null>(null);
   const [mapCityName, setMapCityName] = useState<string | null>(null);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
@@ -64,14 +62,6 @@ export default function Home() {
 
         <div className="flex items-center gap-2">
           <LoginButton />
-          <button
-            onClick={() => setShowShops(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 text-xs font-medium text-purple-600 hover:bg-purple-100 transition-colors border border-purple-100"
-            title="同城店铺"
-          >
-            <Store className="w-3.5 h-3.5" />
-            同城店铺
-          </button>
           {user && (
             <button
               onClick={() => setShowMyCars(true)}
@@ -128,15 +118,6 @@ export default function Home() {
         onClose={() => setShowMyCars(false)}
         onCarUpdated={handleCarAdded}
         onEditCar={handleEditCar}
-      />
-
-      {/* 同城店铺弹窗 */}
-      <ShopsModal
-        isOpen={showShops}
-        onClose={() => setShowShops(false)}
-        cars={allCars}
-        currentCityId={mapCityId}
-        currentCityName={mapCityName}
       />
 
       {/* 登录/注册弹窗 */}
