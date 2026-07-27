@@ -1613,13 +1613,14 @@ export function addCar(car: Omit<Car, 'id' | 'isVisible' | 'createdAt'>): Car {
 
 import { supabase } from './supabase';
 
-// 从 Supabase 加载用户添加的车辆
+// 从 Supabase 加载用户添加的车辆（排除 demo 数据）
 export async function loadUserCars(): Promise<Car[]> {
   try {
     const { data, error } = await supabase
       .from('cars')
       .select('*')
       .eq('is_user_added', true)
+      .eq('is_demo', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -1711,10 +1712,68 @@ export async function saveCarToSupabase(car: Car, userId?: string): Promise<stri
   }
 }
 
-// 获取所有车辆（mock + Supabase 用户数据）
+// 从 Supabase 加载虚拟 demo 车辆（含完整简介、爱好等字段）
+async function loadDemoCars(): Promise<Car[]> {
+  try {
+    const { data, error } = await supabase
+      .from('cars')
+      .select('*')
+      .eq('is_demo', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('加载demo车辆失败:', error.message);
+      return [];
+    }
+
+    if (!data) return [];
+
+    return data.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      nickname: (row.nickname as string) || '匿名痛车人',
+      brand: row.brand as string,
+      model: row.model as string,
+      ipTags: (row.ip_tags as string[]) || [],
+      city: row.city as string,
+      cityName: row.city_name as string,
+      contactType: row.contact_type as 'wechat' | 'qq',
+      contactValue: row.contact_value as string,
+      contactType2: (row.contact_type2 as 'wechat' | 'qq') || undefined,
+      contactValue2: (row.contact_value2 as string) || undefined,
+      photos: (row.photos as string[]) || [],
+      lat: row.lat as number,
+      lng: row.lng as number,
+      isVisible: row.is_visible !== false,
+      createdAt: (row.created_at as string)?.split('T')[0] || new Date().toISOString().split('T')[0],
+      province: (row.province as string) || undefined,
+      district: (row.district as string) || undefined,
+      avatar: (row.avatar as string) || undefined,
+      bio: (row.bio as string) || undefined,
+      hobbies: (row.hobbies as string[]) || undefined,
+      gender: (row.gender as 'male' | 'female') || undefined,
+      occupation: (row.occupation as string) || undefined,
+      isDemo: true,
+      costRange: (row.cost_range as string) || undefined,
+      shopName: (row.shop_name as string) || undefined,
+      designSource: (row.design_source as string) || undefined,
+    }));
+  } catch (err) {
+    console.error('加载demo车辆异常:', err);
+    return [];
+  }
+}
+
+// 获取所有车辆（Supabase demo + Supabase 用户数据，降级到前端 CARS 常量）
 export async function getAllCars(): Promise<Car[]> {
-  const userCars = await loadUserCars();
-  return [...CARS, ...userCars];
+  try {
+    const [demoCars, userCars] = await Promise.all([loadDemoCars(), loadUserCars()]);
+    // 优先使用 Supabase 中的 demo 数据（含完整字段）；如果为空则降级到前端常量
+    const demoSource = demoCars.length > 0 ? demoCars : CARS;
+    return [...demoSource, ...userCars];
+  } catch {
+    // 完全降级到前端常量 + localStorage
+    return [...CARS, ...loadUserCarsFromLocal()];
+  }
 }
 
 // ======== localStorage 降级方案 ========
@@ -1742,6 +1801,7 @@ export async function getUserCars(userId: string): Promise<Car[]> {
       .select('*')
       .eq('user_id', userId)
       .eq('is_user_added', true)
+      .eq('is_demo', false)
       .order('created_at', { ascending: false });
 
     if (error) {
