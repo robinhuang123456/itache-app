@@ -278,7 +278,7 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
       } else {
         // ====== 新增模式 ======
         const fullAddress = buildAddress(location.province, location.city, location.district);
-        const geoResult = await geocodeAddress(fullAddress);
+        const geoResult = await geocodeAddress(fullAddress, location.city);
 
         let lat = 35.0;
         let lng = 105.0;
@@ -286,7 +286,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           lat = geoResult.lat;
           lng = geoResult.lng;
         } else {
-          setErrorMsg('无法获取精确坐标，将使用近似位置');
+          setErrorMsg('无法获取坐标，请检查网络后重试');
+          setSubmitting(false);
+          return;
         }
 
         const cityId = `custom-${location.province}-${location.city}`;
