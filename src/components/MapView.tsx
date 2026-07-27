@@ -14,6 +14,7 @@ import CarCard from './CarCard';
 interface MapViewProps {
   allCars: Car[];
   searchQuery: string | null;
+  onCityChange?: (cityId: string | null, cityName: string | null) => void;
 }
 
 // 车辆图片标记点的 HTML 内容
@@ -82,7 +83,7 @@ function createClusterContent(count: number): string {
   ">${count}</div>`;
 }
 
-export default function MapView({ allCars, searchQuery }: MapViewProps) {
+export default function MapView({ allCars, searchQuery, onCityChange }: MapViewProps) {
   const { ready, error } = useAMap();
   const [mapReady, setMapReady] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
@@ -239,6 +240,14 @@ export default function MapView({ allCars, searchQuery }: MapViewProps) {
       }
     };
   }, []);
+
+  // 通知父组件城市变化
+  useEffect(() => {
+    if (onCityChange) {
+      const group = cityGroups.find((g) => g.id === selectedCity);
+      onCityChange(selectedCity, group?.name || null);
+    }
+  }, [selectedCity, cityGroups, onCityChange]);
 
   const handleBack = useCallback(() => {
     setSelectedCity(null);

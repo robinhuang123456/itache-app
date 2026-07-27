@@ -174,6 +174,30 @@ export default function CarCard({ car, onClose }: CarCardProps) {
                 </>
               )}
             </div>
+
+            {/* 制作信息（花费 / 店铺 / 设计来源） */}
+            {(car.costRange || car.shopName || car.designSource) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+                {car.costRange && (
+                  <span className="inline-flex items-center gap-1 text-[var(--color-text-secondary)]">
+                    <span>💰</span>
+                    <span className="font-medium text-amber-600">{car.costRange}</span>
+                  </span>
+                )}
+                {car.shopName && (
+                  <span className="inline-flex items-center gap-1 text-[var(--color-text-secondary)]">
+                    <span>🏪</span>
+                    <span className="font-medium text-[var(--color-text)]">{car.shopName}</span>
+                  </span>
+                )}
+                {car.designSource && (
+                  <span className="inline-flex items-center gap-1 text-[var(--color-text-secondary)]">
+                    <span>🎨</span>
+                    <span>{car.designSource}</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

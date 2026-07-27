@@ -14,6 +14,8 @@ import {
 import {
   IP_TAGS,
   BRAND_MODELS,
+  COST_RANGES,
+  DESIGN_SOURCES,
   addCar,
   saveCarToSupabase,
   updateCarInSupabase,
@@ -52,6 +54,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
   const [hobbyInput, setHobbyInput] = useState('');
   const [showCustomIp, setShowCustomIp] = useState(false);
   const [customIpInput, setCustomIpInput] = useState('');
+  const [costRange, setCostRange] = useState('');
+  const [shopName, setShopName] = useState('');
+  const [designSource, setDesignSource] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [compressing, setCompressing] = useState(false);
   const [avatarCompressing, setAvatarCompressing] = useState(false);
@@ -86,6 +91,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
       setAvatarType(editingCar.avatar ? (editingCar.avatar?.startsWith('/') ? (editingCar.avatar.includes('male') ? 'male' : 'female') : 'custom') : 'none');
       setBio(editingCar.bio || '');
       setHobbies(editingCar.hobbies || []);
+      setCostRange(editingCar.costRange || '');
+      setShopName(editingCar.shopName || '');
+      setDesignSource(editingCar.designSource || '');
     } else if (!isOpen) {
       // 关闭时重置（仅新增模式关闭时清空，编辑模式切换不重复清空）
       if (!editingCar) {
@@ -110,6 +118,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
     setBio('');
     setHobbies([]);
     setHobbyInput('');
+    setCostRange('');
+    setShopName('');
+    setDesignSource('');
     setErrorMsg('');
     setSuccessMsg('');
   };
@@ -250,6 +261,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           hobbies: hobbies.length > 0 ? hobbies : undefined,
           gender: gender as 'male' | 'female',
           occupation: occupation.trim() || undefined,
+          costRange: costRange || undefined,
+          shopName: shopName.trim() || undefined,
+          designSource: designSource || undefined,
         };
 
         const updateError = await updateCarInSupabase(updatedCar, editingCar.id);
@@ -304,6 +318,9 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
           hobbies: hobbies.length > 0 ? hobbies : undefined,
           gender: gender as 'male' | 'female',
           occupation: occupation.trim() || undefined,
+          costRange: costRange || undefined,
+          shopName: shopName.trim() || undefined,
+          designSource: designSource || undefined,
         });
 
         const saveError = await saveCarToSupabase(newCar, user?.id);
@@ -741,6 +758,57 @@ export default function AddCarModal({ isOpen, onClose, onCarAdded, editingCar }:
                 onChange={(e) => setQqValue(e.target.value)}
                 className="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-white outline-none focus:border-[var(--color-primary-light)] transition-colors"
               />
+            </div>
+          </div>
+
+          {/* 制作信息（可选） */}
+          <div className="pt-2 border-t border-[var(--color-border)]">
+            <label className="block text-sm font-medium text-[var(--color-text)] mb-3">
+              制作信息
+              <span className="text-xs font-normal text-[var(--color-text-secondary)] ml-1">选填，帮助其他车友参考</span>
+            </label>
+            <div className="space-y-3">
+              {/* 花费区间 */}
+              <div>
+                <label className="block text-xs text-[var(--color-text-secondary)] mb-1.5">花费区间</label>
+                <select
+                  value={costRange}
+                  onChange={(e) => setCostRange(e.target.value)}
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-white outline-none focus:border-[var(--color-primary-light)] transition-colors appearance-none"
+                >
+                  <option value="">请选择花费区间</option>
+                  {COST_RANGES.map((range) => (
+                    <option key={range} value={range}>{range}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 施工店铺 */}
+              <div>
+                <label className="block text-xs text-[var(--color-text-secondary)] mb-1.5">施工店铺</label>
+                <input
+                  type="text"
+                  placeholder="如：XX汽车贴膜工作室（选填）"
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-white outline-none focus:border-[var(--color-primary-light)] transition-colors"
+                />
+              </div>
+
+              {/* 设计来源 */}
+              <div>
+                <label className="block text-xs text-[var(--color-text-secondary)] mb-1.5">设计来源</label>
+                <select
+                  value={designSource}
+                  onChange={(e) => setDesignSource(e.target.value)}
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-white outline-none focus:border-[var(--color-primary-light)] transition-colors appearance-none"
+                >
+                  <option value="">请选择设计来源</option>
+                  {DESIGN_SOURCES.map((source) => (
+                    <option key={source} value={source}>{source}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>

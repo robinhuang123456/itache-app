@@ -33,6 +33,12 @@ export interface Car {
   occupation?: string;
   /** 是否为演示/虚拟数据（冷启动用，可一键删除） */
   isDemo?: boolean;
+  /** 痛车花费区间 */
+  costRange?: string;
+  /** 施工店铺名称 */
+  shopName?: string;
+  /** 设计来源 */
+  designSource?: string;
 }
 
 /** 城市分组信息（用于地图聚合标记） */
@@ -1649,6 +1655,9 @@ export async function loadUserCars(): Promise<Car[]> {
       gender: (row.gender as 'male' | 'female') || undefined,
       occupation: (row.occupation as string) || undefined,
       isDemo: (row.is_demo as boolean) || false,
+      costRange: (row.cost_range as string) || undefined,
+      shopName: (row.shop_name as string) || undefined,
+      designSource: (row.design_source as string) || undefined,
     }));
   } catch (err) {
     console.error('Supabase 连接失败，降级到 localStorage:', err);
@@ -1686,6 +1695,9 @@ export async function saveCarToSupabase(car: Car, userId?: string): Promise<stri
       hobbies: car.hobbies || null,
       gender: car.gender || null,
       occupation: car.occupation || null,
+      cost_range: car.costRange || null,
+      shop_name: car.shopName || null,
+      design_source: car.designSource || null,
     });
 
     if (error) {
@@ -1764,6 +1776,9 @@ export async function getUserCars(userId: string): Promise<Car[]> {
       gender: (row.gender as 'male' | 'female') || undefined,
       occupation: (row.occupation as string) || undefined,
       isDemo: (row.is_demo as boolean) || false,
+      costRange: (row.cost_range as string) || undefined,
+      shopName: (row.shop_name as string) || undefined,
+      designSource: (row.design_source as string) || undefined,
     }));
   } catch (err) {
     console.error('查询用户车辆异常:', err);
@@ -1797,6 +1812,9 @@ export async function updateCarInSupabase(car: Car, carId: string): Promise<stri
       hobbies: car.hobbies || null,
       gender: car.gender || null,
       occupation: car.occupation || null,
+      cost_range: car.costRange || null,
+      shop_name: car.shopName || null,
+      design_source: car.designSource || null,
     }).eq('id', carId).select();
 
     if (error) {
@@ -1809,6 +1827,70 @@ export async function updateCarInSupabase(car: Car, carId: string): Promise<stri
     console.error('[updateCarInSupabase] 异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
   }
+}
+
+// ======== 痛车花费区间选项 ========
+export const COST_RANGES = [
+  '2000元以下',
+  '2000-5000元',
+  '5000-10000元',
+  '10000-20000元',
+  '20000元以上',
+  '保密',
+] as const;
+
+// ======== 设计来源选项 ========
+export const DESIGN_SOURCES = [
+  '自己设计',
+  '淘宝/网购素材',
+  '找独立设计师',
+  '工作室定制',
+  '朋友帮忙',
+  '其他',
+] as const;
+
+// ======== 从车辆数据中聚合店铺信息 ========
+export interface ShopInfo {
+  name: string;
+  city: string;
+  cityName: string;
+  caseCount: number;
+  costRanges: string[];
+  designSources: string[];
+  cases: Car[];
+}
+
+export function aggregateShops(cars: Car[]): ShopInfo[] {
+  const shopMap = new Map<string, ShopInfo>();
+
+  for (const car of cars) {
+    if (!car.shopName || !car.shopName.trim()) continue;
+    const key = `${car.shopName.trim()}_${car.city}`;
+
+    if (shopMap.has(key)) {
+      const shop = shopMap.get(key)!;
+      shop.caseCount++;
+      shop.cases.push(car);
+      if (car.costRange && !shop.costRanges.includes(car.costRange)) {
+        shop.costRanges.push(car.costRange);
+      }
+      if (car.designSource && !shop.designSources.includes(car.designSource)) {
+        shop.designSources.push(car.designSource);
+      }
+    } else {
+      shopMap.set(key, {
+        name: car.shopName.trim(),
+        city: car.city,
+        cityName: car.cityName,
+        caseCount: 1,
+        costRanges: car.costRange ? [car.costRange] : [],
+        designSources: car.designSource ? [car.designSource] : [],
+        cases: [car],
+      });
+    }
+  }
+
+  return Array.from(shopMap.values()).sort((a, b) => b.caseCount - a.caseCount);
 }
 
 // 从 Supabase 删除指定车辆

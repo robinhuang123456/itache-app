@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import './globals.css';
 import { UserProvider } from '@/lib/auth-context';
 
@@ -13,6 +14,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
 };
+
+const BAIDU_TONGJI_ID = 'fd98be8522143423db60b3673ad0c0440';
 
 export default function RootLayout({
   children,
@@ -32,6 +35,15 @@ export default function RootLayout({
       </head>
       <body>
         <UserProvider>{children}</UserProvider>
+
+        {/* 百度统计：访问量 / UV / PV / 来源追踪 */}
+        {BAIDU_TONGJI_ID && (
+          <Script
+            id="baidu-tongji"
+            strategy="afterInteractive"
+            src={`https://hm.baidu.com/hm.js?${BAIDU_TONGJI_ID}`}
+          />
+        )}
       </body>
     </html>
   );
