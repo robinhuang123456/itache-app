@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { dbSelect, getValidAccessToken } from '@/lib/supabase/direct';
 import { mapRowToCar } from '@/lib/car-mapper';
 import type { Car } from '@/lib/data';
 
@@ -11,14 +11,12 @@ export const preferredRegion = 'hkg1';
  *
  * GET /api/cars/user - 获取当前登录用户添加的车辆
  *
- * user_id 从服务端 session 获取，不依赖浏览器端传参。
+ * 直接调用 Supabase REST API，不依赖 @supabase/ssr SDK。
  */
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await getValidAccessToken();
     if (!user) {
       return NextResponse.json(
         { cars: [], error: '未登录' },
@@ -26,21 +24,19 @@ export async function GET() {
       );
     }
 
-    const { data, error } = await supabase
-      .from('cars')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_user_added', true)
-      .eq('is_demo', false)
-      .order('created_at', { ascending: false });
+    const { data, error } = await dbSelect('cars', {
+      select: '*',
+      filters: { user_id: user.id, is_user_added: true, is_demo: false },
+      order: { column: 'created_at', ascending: false },
+    });
 
     if (error) {
-      console.error('[API /cars/user GET] 查询失败:', error.message);
+      console.error('[API /cars/user GET] 查询失败:', error);
       return NextResponse.json({ cars: [] });
     }
 
     const cars: Car[] = data
-      ? data.map((row) => mapRowToCar(row as Record<string, unknown>))
+      ? data.map((row) => mapRowToCar(row))
       : [];
 
     return NextResponse.json({ cars });

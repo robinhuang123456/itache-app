@@ -25,8 +25,8 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <head>
-        {/* 只做 dns-prefetch，不做 preconnect — 蜂窝网络下不提前占用带宽给地图 */}
-        <link rel="dns-prefetch" href="https://webapi.amap.com" />
+        {/* 预连接高德域名 — 认证已改用轻量 direct fetch，可提前建立地图连接 */}
+        <link rel="preconnect" href="https://webapi.amap.com" />
         <link rel="dns-prefetch" href="https://restapi.amap.com" />
       </head>
       <body>

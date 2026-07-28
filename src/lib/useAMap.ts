@@ -8,13 +8,13 @@ const AMAP_SECURITY_CODE = '21dd8b2c6ac48c6bb6972c8fcb205d7f';
 const AMAP_VERSION = '2.0';
 
 // 超时和重试配置
-const LOAD_TIMEOUT = 12000; // 12秒超时（从15秒降低）
+const LOAD_TIMEOUT = 10000; // 10秒超时
 const MAX_RETRIES = 2; // 最多重试2次
-const RETRY_DELAY = 3000; // 重试间隔3秒
+const RETRY_DELAY = 2000; // 重试间隔2秒
 
-// 延迟加载：让 Supabase 认证和数据请求优先完成
-// 蜂窝网络下带宽有限，高德脚本（~500KB）会占满带宽导致注册请求超时
-const LOAD_DELAY = 2000; // 延迟2秒后才开始加载地图脚本
+// 延迟加载：认证已改用轻量 direct fetch（无 SDK 开销），
+// 只需短暂延迟让 session 检查请求先发出即可
+const LOAD_DELAY = 300; // 延迟300ms后开始加载地图脚本
 
 // 高德地图类型声明
 declare global {

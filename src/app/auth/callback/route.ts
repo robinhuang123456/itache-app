@@ -1,21 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { clearAuthCookies } from '@/lib/supabase/direct';
 
 export const preferredRegion = 'hkg1';
 
+/**
+ * OAuth 回调路由
+ *
+ * 由于已改为邮箱密码认证（不使用 OAuth），
+ * 此路由仅做重定向，清除可能残留的 cookie。
+ */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/';
-
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
-  }
-
-  // 返回错误页面
-  return NextResponse.redirect(`${origin}/?auth=error`);
+  const { origin } = new URL(request.url);
+  await clearAuthCookies();
+  return NextResponse.redirect(`${origin}/?auth=callback`);
 }

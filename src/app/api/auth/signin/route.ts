@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { signInWithEmail, setAuthCookies } from '@/lib/supabase/direct';
 
 // 部署到香港区域，确保能访问阿里云 ADB Supabase
 export const preferredRegion = 'hkg1';
@@ -7,8 +7,8 @@ export const preferredRegion = 'hkg1';
 /**
  * 登录 API 路由
  *
- * 浏览器端完全不接触 Supabase SDK，所有认证在服务端完成。
- * 服务端通过 HTTP-only cookie 自动管理 session token。
+ * 直接调用 Supabase Auth REST API，不依赖 @supabase/ssr SDK。
+ * 登录成功后将 token 写入 HTTP-only cookie。
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,27 +21,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    const result = await signInWithEmail(email, password);
 
-    if (error) {
-      const msg = error.message === 'Invalid login credentials'
-        ? '邮箱或密码错误'
-        : error.message;
-      return NextResponse.json({ error: msg }, { status: 401 });
+    if (result.error || !result.user) {
+      return NextResponse.json(
+        { error: result.error || '登录失败' },
+        { status: 401 }
+      );
     }
 
-    // 登录成功，cookie 已由 createServerClient 自动设置
+    // 设置认证 cookie
+    if (result.accessToken && result.refreshToken) {
+      await setAuthCookies(result.accessToken, result.refreshToken);
+    }
+
     return NextResponse.json({
-      user: data.user ? {
-        id: data.user.id,
-        email: data.user.email,
-      } : null,
+      user: result.user,
     });
   } catch (err) {
+    console.error('[API /auth/signin] error:', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : '登录失败' },
       { status: 500 }

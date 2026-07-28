@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getValidAccessToken, signOut, clearAuthCookies } from '@/lib/supabase/direct';
 
 // 部署到香港区域，确保能访问阿里云 ADB Supabase
 export const preferredRegion = 'hkg1';
@@ -7,15 +7,18 @@ export const preferredRegion = 'hkg1';
 /**
  * 登出 API 路由
  *
- * 服务端清除 session cookie。
+ * 调用 Supabase Auth API 注销 token，清除 cookie。
  */
 export async function POST() {
   try {
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    return NextResponse.json({ success: true });
+    const { token } = await getValidAccessToken();
+    if (token) {
+      await signOut(token);
+    }
   } catch {
-    // 即使出错也返回成功，前端会清除本地状态
-    return NextResponse.json({ success: true });
+    // 忽略错误
   }
+
+  await clearAuthCookies();
+  return NextResponse.json({ success: true });
 }

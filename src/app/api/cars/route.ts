@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { dbSelect, dbInsert, getValidAccessToken } from '@/lib/supabase/direct';
 import { mapRowToCar } from '@/lib/car-mapper';
 import type { Car } from '@/lib/data';
 
@@ -12,33 +12,30 @@ export const preferredRegion = 'hkg1';
  * GET  /api/cars      - 获取所有车辆（demo + 用户添加），无需登录
  * POST /api/cars      - 保存新车辆，需要登录
  *
- * 服务端直连 Supabase，不受蜂窝网络运营商限制。
+ * 直接调用 Supabase REST API，不依赖 @supabase/ssr SDK。
  */
 
 export async function GET() {
   try {
-    const supabase = await createClient();
-
     // 并行加载 demo 车辆和用户车辆
     const [demoResult, userResult] = await Promise.all([
-      supabase
-        .from('cars')
-        .select('*')
-        .eq('is_demo', true)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('cars')
-        .select('*')
-        .eq('is_user_added', true)
-        .eq('is_demo', false)
-        .order('created_at', { ascending: false }),
+      dbSelect('cars', {
+        select: '*',
+        filters: { is_demo: true },
+        order: { column: 'created_at', ascending: false },
+      }),
+      dbSelect('cars', {
+        select: '*',
+        filters: { is_user_added: true, is_demo: false },
+        order: { column: 'created_at', ascending: false },
+      }),
     ]);
 
     const demoCars: Car[] = demoResult.data
-      ? demoResult.data.map((row) => mapRowToCar(row as Record<string, unknown>))
+      ? demoResult.data.map((row) => mapRowToCar(row))
       : [];
     const userCars: Car[] = userResult.data
-      ? userResult.data.map((row) => mapRowToCar(row as Record<string, unknown>))
+      ? userResult.data.map((row) => mapRowToCar(row))
       : [];
 
     const allCars = [...demoCars, ...userCars];
@@ -55,10 +52,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
     // 验证用户登录状态
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await getValidAccessToken();
     if (!user) {
       return NextResponse.json(
         { error: '请先登录后再添加痛车' },
@@ -68,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const car: Car = await request.json();
 
-    const { error } = await supabase.from('cars').insert({
+    const { error } = await dbInsert('cars', {
       id: car.id,
       user_id: user.id,
       nickname: car.nickname,
@@ -101,9 +96,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('[API /cars POST] 保存失败:', error.message);
+      console.error('[API /cars POST] 保存失败:', error);
       return NextResponse.json(
-        { error: `保存失败: ${error.message}` },
+        { error: error },
         { status: 400 }
       );
     }
