@@ -1609,183 +1609,55 @@ export function addCar(car: Omit<Car, 'id' | 'isVisible' | 'createdAt'>): Car {
   return newCar;
 }
 
-// ======== Supabase 数据层 ========
+// ======== 数据层（通过自有 API 路由，不使用浏览器端 Supabase SDK） ========
 
-import { supabase } from './supabase';
-
-// 从 Supabase 加载用户添加的车辆（排除 demo 数据）
-export async function loadUserCars(): Promise<Car[]> {
+// 获取所有车辆（demo + 用户添加），通过服务端 API 路由
+// 服务端直连 Supabase，不受蜂窝网络运营商限制
+export async function getAllCars(): Promise<Car[]> {
   try {
-    const { data, error } = await supabase
-      .from('cars')
-      .select('*')
-      .eq('is_user_added', true)
-      .eq('is_demo', false)
-      .order('created_at', { ascending: false });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (error) {
-      console.error('加载用户车辆失败:', error.message);
-      // 降级到 localStorage
-      return loadUserCarsFromLocal();
+    const res = await fetch('/api/cars', {
+      signal: controller.signal,
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      console.error('获取车辆数据失败:', res.status);
+      return [...CARS, ...loadUserCarsFromLocal()];
     }
 
-    if (!data) return [];
-
-    return data.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      nickname: (row.nickname as string) || '匿名痛车人',
-      brand: row.brand as string,
-      model: row.model as string,
-      ipTags: (row.ip_tags as string[]) || [],
-      city: row.city as string,
-      cityName: row.city_name as string,
-      contactType: row.contact_type as 'wechat' | 'qq',
-      contactValue: row.contact_value as string,
-      contactType2: (row.contact_type2 as 'wechat' | 'qq') || undefined,
-      contactValue2: (row.contact_value2 as string) || undefined,
-      photos: (row.photos as string[]) || [],
-      lat: row.lat as number,
-      lng: row.lng as number,
-      isVisible: true,
-      createdAt: (row.created_at as string)?.split('T')[0] || new Date().toISOString().split('T')[0],
-      province: (row.province as string) || undefined,
-      district: (row.district as string) || undefined,
-      avatar: (row.avatar as string) || undefined,
-      bio: (row.bio as string) || undefined,
-      hobbies: (row.hobbies as string[]) || undefined,
-      gender: (row.gender as 'male' | 'female') || undefined,
-      occupation: (row.occupation as string) || undefined,
-      isDemo: (row.is_demo as boolean) || false,
-      costRange: (row.cost_range as string) || undefined,
-      shopName: (row.shop_name as string) || undefined,
-      designSource: (row.design_source as string) || undefined,
-    }));
+    const data = await res.json();
+    if (data.cars && data.cars.length > 0) {
+      return data.cars as Car[];
+    }
+    // API 返回空，降级到前端常量
+    return [...CARS, ...loadUserCarsFromLocal()];
   } catch (err) {
-    console.error('Supabase 连接失败，降级到 localStorage:', err);
-    return loadUserCarsFromLocal();
+    console.error('获取车辆数据异常，降级到本地数据:', err);
+    return [...CARS, ...loadUserCarsFromLocal()];
   }
 }
 
-// 保存车辆到 Supabase（插入单条，绑定用户 ID）
-export async function saveCarToSupabase(car: Car, userId?: string): Promise<string | null> {
+// 保存新车辆（通过服务端 API 路由，服务端从 session 获取 user_id）
+export async function saveCarToSupabase(car: Car, _userId?: string): Promise<string | null> {
   try {
-    const { error } = await supabase.from('cars').insert({
-      id: car.id,
-      user_id: userId || null,
-      nickname: car.nickname,
-      brand: car.brand,
-      model: car.model,
-      ip_tags: car.ipTags,
-      city: car.city,
-      city_name: car.cityName,
-      contact_type: car.contactType,
-      contact_value: car.contactValue,
-      contact_type2: car.contactType2 || null,
-      contact_value2: car.contactValue2 || null,
-      photos: car.photos,
-      lat: car.lat,
-      lng: car.lng,
-      is_visible: true,
-      is_user_added: true,
-      is_demo: false,
-      created_at: car.createdAt,
-      province: car.province || null,
-      district: car.district || null,
-      avatar: car.avatar || null,
-      bio: car.bio || null,
-      hobbies: car.hobbies || null,
-      gender: car.gender || null,
-      occupation: car.occupation || null,
-      cost_range: car.costRange || null,
-      shop_name: car.shopName || null,
-      design_source: car.designSource || null,
+    const res = await fetch('/api/cars', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(car),
     });
+    const data = await res.json();
 
-    if (error) {
-      console.error('保存车辆失败:', error.message);
-      return `保存失败: ${error.message}`;
+    if (!res.ok) {
+      return data.error || '保存失败';
     }
     return null;
   } catch (err) {
-    console.error('Supabase 连接失败:', err);
+    console.error('保存车辆异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
-  }
-}
-
-// 从 Supabase 加载虚拟 demo 车辆（含完整简介、爱好等字段）
-async function loadDemoCars(): Promise<Car[]> {
-  try {
-    const { data, error } = await supabase
-      .from('cars')
-      .select('*')
-      .eq('is_demo', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('加载demo车辆失败:', error.message);
-      return [];
-    }
-
-    if (!data) return [];
-
-    return data.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      nickname: (row.nickname as string) || '匿名痛车人',
-      brand: row.brand as string,
-      model: row.model as string,
-      ipTags: (row.ip_tags as string[]) || [],
-      city: row.city as string,
-      cityName: row.city_name as string,
-      contactType: row.contact_type as 'wechat' | 'qq',
-      contactValue: row.contact_value as string,
-      contactType2: (row.contact_type2 as 'wechat' | 'qq') || undefined,
-      contactValue2: (row.contact_value2 as string) || undefined,
-      photos: (row.photos as string[]) || [],
-      lat: row.lat as number,
-      lng: row.lng as number,
-      isVisible: row.is_visible !== false,
-      createdAt: (row.created_at as string)?.split('T')[0] || new Date().toISOString().split('T')[0],
-      province: (row.province as string) || undefined,
-      district: (row.district as string) || undefined,
-      avatar: (row.avatar as string) || undefined,
-      bio: (row.bio as string) || undefined,
-      hobbies: (row.hobbies as string[]) || undefined,
-      gender: (row.gender as 'male' | 'female') || undefined,
-      occupation: (row.occupation as string) || undefined,
-      isDemo: true,
-      costRange: (row.cost_range as string) || undefined,
-      shopName: (row.shop_name as string) || undefined,
-      designSource: (row.design_source as string) || undefined,
-    }));
-  } catch (err) {
-    console.error('加载demo车辆异常:', err);
-    return [];
-  }
-}
-
-// 获取所有车辆（Supabase demo + Supabase 用户数据，降级到前端 CARS 常量）
-// 蜂窝网络下 Supabase 请求可能超时，10秒后自动降级到本地数据
-export async function getAllCars(): Promise<Car[]> {
-  try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase timeout')), 10000)
-    );
-
-    const [demoCars, userCars] = await Promise.race([
-      Promise.all([loadDemoCars(), loadUserCars()]),
-      timeoutPromise,
-    ]);
-
-    const total = demoCars.length + userCars.length;
-    // 如果 Supabase 返回了数据，使用它
-    if (total > 0) {
-      return [...demoCars, ...userCars];
-    }
-    // Supabase 返回空（可能是 RLS 策略问题），降级到前端常量
-    return [...CARS, ...loadUserCarsFromLocal()];
-  } catch {
-    // 完全降级到前端常量 + localStorage
-    return [...CARS, ...loadUserCarsFromLocal()];
   }
 }
 
@@ -1806,98 +1678,41 @@ function loadUserCarsFromLocal(): Car[] {
 
 // ======== 用户车辆管理（我的痛车）========
 
-// 根据用户ID查询该用户添加的所有车辆
-export async function getUserCars(userId: string): Promise<Car[]> {
+// 根据用户ID查询该用户添加的所有车辆（通过服务端 API 路由）
+export async function getUserCars(_userId: string): Promise<Car[]> {
   try {
-    const { data, error } = await supabase
-      .from('cars')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_user_added', true)
-      .eq('is_demo', false)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('查询用户车辆失败:', error.message);
+    const res = await fetch('/api/cars/user', {
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (!res.ok) {
+      console.error('查询用户车辆失败:', res.status);
       return [];
     }
-
-    if (!data) return [];
-
-    return data.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      nickname: (row.nickname as string) || '匿名痛车人',
-      brand: row.brand as string,
-      model: row.model as string,
-      ipTags: (row.ip_tags as string[]) || [],
-      city: row.city as string,
-      cityName: row.city_name as string,
-      contactType: row.contact_type as 'wechat' | 'qq',
-      contactValue: row.contact_value as string,
-      contactType2: (row.contact_type2 as 'wechat' | 'qq') || undefined,
-      contactValue2: (row.contact_value2 as string) || undefined,
-      photos: (row.photos as string[]) || [],
-      lat: row.lat as number,
-      lng: row.lng as number,
-      isVisible: true,
-      createdAt: (row.created_at as string)?.split('T')[0] || new Date().toISOString().split('T')[0],
-      province: (row.province as string) || undefined,
-      district: (row.district as string) || undefined,
-      avatar: (row.avatar as string) || undefined,
-      bio: (row.bio as string) || undefined,
-      hobbies: (row.hobbies as string[]) || undefined,
-      gender: (row.gender as 'male' | 'female') || undefined,
-      occupation: (row.occupation as string) || undefined,
-      isDemo: (row.is_demo as boolean) || false,
-      costRange: (row.cost_range as string) || undefined,
-      shopName: (row.shop_name as string) || undefined,
-      designSource: (row.design_source as string) || undefined,
-    }));
+    const data = await res.json();
+    return (data.cars as Car[]) || [];
   } catch (err) {
     console.error('查询用户车辆异常:', err);
     return [];
   }
 }
 
-// 更新 Supabase 中指定车辆的所有字段
+// 更新指定车辆的所有字段（通过服务端 API 路由）
 export async function updateCarInSupabase(car: Car, carId: string): Promise<string | null> {
   try {
-    console.log('[updateCarInSupabase] 开始更新车辆:', { carId, nickname: car.nickname, brand: car.brand, model: car.model });
-    const { data, error } = await supabase.from('cars').update({
-      nickname: car.nickname,
-      brand: car.brand,
-      model: car.model,
-      ip_tags: car.ipTags,
-      city: car.city,
-      city_name: car.cityName,
-      contact_type: car.contactType,
-      contact_value: car.contactValue,
-      contact_type2: car.contactType2 || null,
-      contact_value2: car.contactValue2 || null,
-      photos: car.photos,
-      lat: car.lat,
-      lng: car.lng,
-      is_visible: car.isVisible,
-      province: car.province || null,
-      district: car.district || null,
-      avatar: car.avatar || null,
-      bio: car.bio || null,
-      hobbies: car.hobbies || null,
-      gender: car.gender || null,
-      occupation: car.occupation || null,
-      cost_range: car.costRange || null,
-      shop_name: car.shopName || null,
-      design_source: car.designSource || null,
-    }).eq('id', carId).select();
+    const res = await fetch(`/api/cars/${carId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(car),
+    });
+    const data = await res.json();
 
-    if (error) {
-      console.error('[updateCarInSupabase] 更新失败:', error.message, error);
-      return `更新失败: ${error.message}`;
+    if (!res.ok) {
+      console.error('更新车辆失败:', data.error);
+      return data.error || '更新失败';
     }
-    console.log('[updateCarInSupabase] 更新成功, 返回数据:', data);
     return null;
   } catch (err) {
-    console.error('[updateCarInSupabase] 异常:', err);
+    console.error('更新车辆异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
   }
 }
@@ -1966,24 +1781,21 @@ export function aggregateShops(cars: Car[]): ShopInfo[] {
   return Array.from(shopMap.values()).sort((a, b) => b.caseCount - a.caseCount);
 }
 
-// 从 Supabase 删除指定车辆
+// 删除指定车辆（通过服务端 API 路由）
 export async function deleteCarFromSupabase(carId: string): Promise<string | null> {
   try {
-    console.log('[deleteCarFromSupabase] 开始删除车辆:', carId);
-    const { data, error } = await supabase
-      .from('cars')
-      .delete()
-      .eq('id', carId)
-      .select();
+    const res = await fetch(`/api/cars/${carId}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json();
 
-    if (error) {
-      console.error('[deleteCarFromSupabase] 删除失败:', error.message, error);
-      return `删除失败: ${error.message}`;
+    if (!res.ok) {
+      console.error('删除车辆失败:', data.error);
+      return data.error || '删除失败';
     }
-    console.log('[deleteCarFromSupabase] 删除成功, 返回数据:', data);
     return null;
   } catch (err) {
-    console.error('[deleteCarFromSupabase] 异常:', err);
+    console.error('删除车辆异常:', err);
     return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
   }
 }

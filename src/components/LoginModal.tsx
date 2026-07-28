@@ -55,17 +55,15 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     if (isSignUp) {
       try {
-        const { data, error } = await withTimeout(
+        const { autoLogin, error } = await withTimeout(
           signUpWithEmail(email.trim(), password),
           15000,
           '网络超时，请切换网络后重试'
         );
         setLoading(false);
         if (error) {
-          setErrorMsg(error.message === 'User already registered'
-            ? '该邮箱已注册，请直接登录'
-            : `注册失败: ${error.message}`);
-        } else if (data?.session) {
+          setErrorMsg(error);
+        } else if (autoLogin) {
           onClose();
         } else {
           setSuccessMsg('注册成功！请检查邮箱点击验证链接，验证后即可登录');
@@ -84,9 +82,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         );
         setLoading(false);
         if (error) {
-          setErrorMsg(error.message === 'Invalid login credentials'
-            ? '邮箱或密码错误'
-            : `登录失败: ${error.message}`);
+          setErrorMsg(error);
         } else {
           onClose();
         }
