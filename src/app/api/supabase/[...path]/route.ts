@@ -15,7 +15,7 @@ export const preferredRegion = 'hkg1';
  * 代理路径：/api/supabase/* → {SUPABASE_URL}/*
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
 
 // 不转发的 hop-by-hop 请求头
 const SKIP_HEADERS = new Set([

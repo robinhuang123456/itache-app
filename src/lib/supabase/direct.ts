@@ -8,8 +8,10 @@ import { cookies } from 'next/headers';
  * 避免 SDK 在 Vercel Serverless 环境下的 fetch failed 问题。
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// trim() 清除 Vercel 环境变量可能携带的尾部换行符 \r\n，
+// 否则 fetch URL 会变成 "https://xxx\r\n/auth/v1/..." 导致请求失败
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
 // Cookie 名称
 const ACCESS_TOKEN_COOKIE = 'sb-access-token';
