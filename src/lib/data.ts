@@ -1609,31 +1609,28 @@ export function addCar(car: Omit<Car, 'id' | 'isVisible' | 'createdAt'>): Car {
   return newCar;
 }
 
-// ======== 数据层（通过自有 API 路由，不使用浏览器端 Supabase SDK） ========
+// ======== 数据层（浏览器直连 Supabase REST API，不经过 Vercel） ========
+//
+// Vercel 香港节点无法连接 ADB Supabase（TCP 超时），所以所有数据操作
+// 都通过 browser.ts 直接从浏览器调用 Supabase REST API。
+// 浏览器在中国网络环境下可以直接访问 Supabase（~0.3秒响应）。
 
-// 获取所有车辆（demo + 用户添加），通过服务端 API 路由
-// 服务端直连 Supabase，不受蜂窝网络运营商限制
+import {
+  fetchAllCars as browserFetchAllCars,
+  saveCar as browserSaveCar,
+  fetchUserCars as browserFetchUserCars,
+  updateCar as browserUpdateCar,
+  deleteCar as browserDeleteCar,
+} from '@/lib/supabase/browser';
+
+// 获取所有车辆（demo + 用户添加），浏览器直连 Supabase
 export async function getAllCars(): Promise<Car[]> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const res = await fetch('/api/cars', {
-      signal: controller.signal,
-      headers: { 'Cache-Control': 'no-cache' },
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      console.error('获取车辆数据失败:', res.status);
-      return [...CARS, ...loadUserCarsFromLocal()];
+    const cars = await browserFetchAllCars();
+    if (cars.length > 0) {
+      return cars;
     }
-
-    const data = await res.json();
-    if (data.cars && data.cars.length > 0) {
-      return data.cars as Car[];
-    }
-    // API 返回空，降级到前端常量
+    // Supabase 返回空，降级到前端常量
     return [...CARS, ...loadUserCarsFromLocal()];
   } catch (err) {
     console.error('获取车辆数据异常，降级到本地数据:', err);
@@ -1641,24 +1638,9 @@ export async function getAllCars(): Promise<Car[]> {
   }
 }
 
-// 保存新车辆（通过服务端 API 路由，服务端从 session 获取 user_id）
+// 保存新车辆（浏览器直连 Supabase，token 从 localStorage 获取）
 export async function saveCarToSupabase(car: Car, _userId?: string): Promise<string | null> {
-  try {
-    const res = await fetch('/api/cars', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(car),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      return data.error || '保存失败';
-    }
-    return null;
-  } catch (err) {
-    console.error('保存车辆异常:', err);
-    return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
-  }
+  return browserSaveCar(car);
 }
 
 // ======== localStorage 降级方案 ========
@@ -1678,43 +1660,14 @@ function loadUserCarsFromLocal(): Car[] {
 
 // ======== 用户车辆管理（我的痛车）========
 
-// 根据用户ID查询该用户添加的所有车辆（通过服务端 API 路由）
+// 根据用户ID查询该用户添加的所有车辆（浏览器直连 Supabase）
 export async function getUserCars(_userId: string): Promise<Car[]> {
-  try {
-    const res = await fetch('/api/cars/user', {
-      headers: { 'Cache-Control': 'no-cache' },
-    });
-    if (!res.ok) {
-      console.error('查询用户车辆失败:', res.status);
-      return [];
-    }
-    const data = await res.json();
-    return (data.cars as Car[]) || [];
-  } catch (err) {
-    console.error('查询用户车辆异常:', err);
-    return [];
-  }
+  return browserFetchUserCars();
 }
 
-// 更新指定车辆的所有字段（通过服务端 API 路由）
+// 更新指定车辆的所有字段（浏览器直连 Supabase）
 export async function updateCarInSupabase(car: Car, carId: string): Promise<string | null> {
-  try {
-    const res = await fetch(`/api/cars/${carId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(car),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('更新车辆失败:', data.error);
-      return data.error || '更新失败';
-    }
-    return null;
-  } catch (err) {
-    console.error('更新车辆异常:', err);
-    return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
-  }
+  return browserUpdateCar(car, carId);
 }
 
 // ======== 痛车花费区间选项 ========
@@ -1781,21 +1734,7 @@ export function aggregateShops(cars: Car[]): ShopInfo[] {
   return Array.from(shopMap.values()).sort((a, b) => b.caseCount - a.caseCount);
 }
 
-// 删除指定车辆（通过服务端 API 路由）
+// 删除指定车辆（浏览器直连 Supabase）
 export async function deleteCarFromSupabase(carId: string): Promise<string | null> {
-  try {
-    const res = await fetch(`/api/cars/${carId}`, {
-      method: 'DELETE',
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error('删除车辆失败:', data.error);
-      return data.error || '删除失败';
-    }
-    return null;
-  } catch (err) {
-    console.error('删除车辆异常:', err);
-    return `网络错误: ${err instanceof Error ? err.message : '未知错误'}`;
-  }
+  return browserDeleteCar(carId);
 }

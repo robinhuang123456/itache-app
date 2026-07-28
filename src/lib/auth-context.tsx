@@ -1,13 +1,19 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import {
+  signInWithEmail as supabaseSignIn,
+  signUpWithEmail as supabaseSignUp,
+  getSession,
+  signOut as supabaseSignOut,
+} from '@/lib/supabase/browser';
 
 /**
- * 认证上下文 - 完全基于自有 API 路由
+ * 认证上下文 - 浏览器直连 Supabase REST API
  *
- * 不再使用浏览器端 Supabase SDK，所有认证请求通过
- * /api/auth/* 路由在服务端完成，避免蜂窝网络下
- * Supabase 域名被运营商拦截导致登录失败。
+ * 不再通过 Vercel API 路由中转，因为 Vercel 香港节点无法连接 ADB Supabase。
+ * 浏览器直接使用原生 fetch 调用 Supabase Auth API，
+ * 避免了 SDK 的 WebSocket 问题，也绕过了 Vercel 的网络限制。
  */
 
 // 简化的用户类型（只包含前端需要的字段）
@@ -49,15 +55,15 @@ const UserContext = createContext<UserContextType>({
   closeLoginModal: () => {},
 });
 
-// 会话检查超时：如果服务端 8 秒未响应，解除 loading 让用户可以操作
-const SESSION_TIMEOUT = 8000;
+// 会话检查超时：如果服务端 10 秒未响应，解除 loading 让用户可以操作
+const SESSION_TIMEOUT = 10000;
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOpenLoginModal, setIsOpenLoginModal] = useState(false);
 
-  // 页面加载时检查会话状态
+  // 页面加载时检查会话状态（直接调用 Supabase，不走 Vercel）
   useEffect(() => {
     let cancelled = false;
 
@@ -65,14 +71,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (!cancelled) setLoading(false);
     }, SESSION_TIMEOUT);
 
-    fetch('/api/auth/session', {
-      headers: { 'Cache-Control': 'no-cache' },
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    getSession()
+      .then((sessionUser) => {
         if (cancelled) return;
         clearTimeout(timeoutId);
-        setUser(data.user);
+        setUser(sessionUser);
         setLoading(false);
       })
       .catch(() => {
@@ -87,73 +90,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 邮箱注册
+  // 邮箱注册（直接调用 Supabase，不走 Vercel）
   const signUpWithEmail = useCallback(
     async (email: string, password: string): Promise<SignUpResult> => {
-      try {
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
+      const result = await supabaseSignUp(email, password);
 
-        if (!res.ok) {
-          return { user: null, error: data.error || '注册失败', autoLogin: false };
-        }
-
-        // 如果自动登录，更新用户状态
-        if (data.autoLogin && data.user) {
-          setUser(data.user);
-        }
-
-        return {
-          user: data.user || null,
-          error: null,
-          autoLogin: data.autoLogin || false,
-        };
-      } catch {
-        return { user: null, error: '网络错误，请重试', autoLogin: false };
+      if (result.error) {
+        return { user: null, error: result.error, autoLogin: false };
       }
+
+      // 如果自动登录，更新用户状态
+      if (result.autoLogin && result.user) {
+        setUser(result.user);
+      }
+
+      return {
+        user: result.user || null,
+        error: null,
+        autoLogin: result.autoLogin || false,
+      };
     },
     []
   );
 
-  // 邮箱登录
+  // 邮箱登录（直接调用 Supabase，不走 Vercel）
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<SignInResult> => {
-      try {
-        const res = await fetch('/api/auth/signin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
+      const result = await supabaseSignIn(email, password);
 
-        if (!res.ok) {
-          return { user: null, error: data.error || '登录失败' };
-        }
-
-        // 登录成功，更新用户状态
-        if (data.user) {
-          setUser(data.user);
-        }
-
-        return { user: data.user || null, error: null };
-      } catch {
-        return { user: null, error: '网络错误，请重试' };
+      if (result.error || !result.user) {
+        return { user: null, error: result.error || '登录失败' };
       }
+
+      // 登录成功，更新用户状态
+      setUser(result.user);
+      return { user: result.user, error: null };
     },
     []
   );
 
-  // 登出
+  // 登出（直接调用 Supabase，不走 Vercel）
   const signOut = useCallback(async () => {
-    try {
-      await fetch('/api/auth/signout', { method: 'POST' });
-    } catch {
-      // 忽略错误，前端仍然清除状态
-    }
+    await supabaseSignOut();
     setUser(null);
   }, []);
 

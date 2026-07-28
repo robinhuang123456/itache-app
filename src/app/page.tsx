@@ -9,10 +9,11 @@ import LoginButton from '@/components/LoginButton';
 import LoginModal from '@/components/LoginModal';
 import MyCarsModal from '@/components/MyCarsModal';
 import { useUser } from '@/lib/auth-context';
-import { getAllCars, type Car } from '@/lib/data';
+import { getAllCars, getInitialCars, type Car } from '@/lib/data';
 
 export default function Home() {
-  const [allCars, setAllCars] = useState<Car[]>([]);
+  // 初始使用前端常量数据，让地图标签立即显示；后台异步从 Supabase 加载真实数据后更新
+  const [allCars, setAllCars] = useState<Car[]>(() => getInitialCars());
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showMyCars, setShowMyCars] = useState(false);

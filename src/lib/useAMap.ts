@@ -12,9 +12,9 @@ const LOAD_TIMEOUT = 10000; // 10秒超时
 const MAX_RETRIES = 2; // 最多重试2次
 const RETRY_DELAY = 2000; // 重试间隔2秒
 
-// 延迟加载：认证已改用轻量 direct fetch（无 SDK 开销），
-// 只需短暂延迟让 session 检查请求先发出即可
-const LOAD_DELAY = 300; // 延迟300ms后开始加载地图脚本
+// 延迟加载：认证和数据请求现已直连 Supabase（~0.3s），
+// 与高德地图脚本（webapi.amap.com）是不同域名，浏览器可并行下载，无需延迟
+const LOAD_DELAY = 0; // 立即加载，preconnect 已在 layout.tsx 中预热连接
 
 // 高德地图类型声明
 declare global {
