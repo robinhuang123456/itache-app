@@ -387,6 +387,7 @@ export async function saveCar(car: Car): Promise<string | null> {
 
 /**
  * 获取当前用户添加的车辆
+ * 必须按 user_id 过滤，确保不同用户只能看到自己的痛车
  */
 export async function fetchUserCars(): Promise<Car[]> {
   const accessToken = getAccessToken();
@@ -394,9 +395,14 @@ export async function fetchUserCars(): Promise<Car[]> {
     return [];
   }
 
+  const storedUser = getStoredUser();
+  if (!storedUser || !storedUser.id) {
+    return [];
+  }
+
   try {
     const res = await fetchWithTimeout(
-      `${SUPABASE_URL}/rest/v1/cars?select=*&is_user_added=eq.true&is_demo=eq.false&order=created_at.desc`,
+      `${SUPABASE_URL}/rest/v1/cars?select=*&user_id=eq.${storedUser.id}&is_user_added=eq.true&is_demo=eq.false&order=created_at.desc`,
       { headers: getHeaders(accessToken) },
       DATA_TIMEOUT
     );
