@@ -1767,9 +1767,13 @@ async function loadDemoCars(): Promise<Car[]> {
 export async function getAllCars(): Promise<Car[]> {
   try {
     const [demoCars, userCars] = await Promise.all([loadDemoCars(), loadUserCars()]);
-    // 优先使用 Supabase 中的 demo 数据（含完整字段）；如果为空则降级到前端常量
-    const demoSource = demoCars.length > 0 ? demoCars : CARS;
-    return [...demoSource, ...userCars];
+    const total = demoCars.length + userCars.length;
+    // 如果 Supabase 返回了数据，使用它
+    if (total > 0) {
+      return [...demoCars, ...userCars];
+    }
+    // Supabase 返回空（可能是 RLS 策略问题），降级到前端常量
+    return [...CARS, ...loadUserCarsFromLocal()];
   } catch {
     // 完全降级到前端常量 + localStorage
     return [...CARS, ...loadUserCarsFromLocal()];
