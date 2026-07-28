@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+// 部署到香港区域，确保能访问阿里云 ADB Supabase
+export const preferredRegion = 'hkg1';
+
 /**
  * 获取当前会话 API 路由
  *

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// 部署到香港区域，确保能访问高德地图 API
+export const preferredRegion = 'hkg1';
+
 /**
  * 高德地图安全验证代理
  *

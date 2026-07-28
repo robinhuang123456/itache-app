@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { mapRowToCar } from '@/lib/car-mapper';
 import type { Car } from '@/lib/data';
 
+// 部署到香港区域，确保能访问阿里云 ADB Supabase
+export const preferredRegion = 'hkg1';
+
 /**
  * 用户车辆 API 路由
  *

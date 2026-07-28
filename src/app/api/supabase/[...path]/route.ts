@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// 部署到香港区域，确保能访问阿里云 ADB Supabase
+export const preferredRegion = 'hkg1';
+
 /**
  * Supabase 代理路由
  *
