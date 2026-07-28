@@ -1,16 +1,21 @@
 import { createBrowserClient } from '@supabase/ssr';
-import { createProxyFetch } from './supabase/proxy-fetch';
+
+/**
+ * 浏览器端 Supabase 客户端（用于 data.ts 的数据操作）
+ *
+ * 蜂窝网络下 Supabase 域名被运营商拦截，
+ * 浏览器端使用 /api/supabase 代理路径，服务端直连。
+ */
+function getSupabaseUrl() {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/supabase`;
+  }
+  return process.env.NEXT_PUBLIC_SUPABASE_URL!;
+}
 
 export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    // 通过自有域名代理所有 Supabase 请求
-    // 蜂窝网络下 Supabase 域名可能被运营商拦截，代理确保移动端正常使用
-    global: {
-      fetch: createProxyFetch(),
-    },
-  }
+  getSupabaseUrl(),
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 /** 获取当前浏览器端的 Supabase 客户端（用于 auth 操作） */
