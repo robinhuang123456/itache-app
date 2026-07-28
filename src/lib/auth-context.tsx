@@ -4,6 +4,10 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { User, Session, AuthError, AuthResponse } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
+// 会话检查超时：蜂窝网络下 supabase.auth.getSession() 可能长时间无响应
+// 超时后直接解除 loading 状态，让用户可以操作登录/注册按钮
+const SESSION_TIMEOUT = 8000;
+
 interface UserContextType {
   user: User | null;
   session: Session | null;
@@ -37,9 +41,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   // 监听认证状态变化
   useEffect(() => {
+    // 超时保护：如果 getSession 超过 8 秒未响应，直接解除 loading
+    // 蜂窝网络下 Supabase 请求可能因带宽被地图脚本占用而卡住
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, SESSION_TIMEOUT);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (timeoutId) clearTimeout(timeoutId);
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
+      if (timeoutId) clearTimeout(timeoutId);
       setLoading(false);
     });
 
@@ -51,7 +67,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // 邮箱注册

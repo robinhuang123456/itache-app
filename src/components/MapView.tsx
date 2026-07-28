@@ -6,9 +6,10 @@ import {
   getCarsByCity,
   getCityGroups,
   type Car,
+  type CityGroup,
 } from '@/lib/data';
 import { useAMap } from '@/lib/useAMap';
-import { ArrowLeft, MapPin, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Loader2, AlertCircle, Car as CarIcon } from 'lucide-react';
 import CarCard from './CarCard';
 
 interface MapViewProps {
@@ -83,8 +84,120 @@ function createClusterContent(count: number): string {
   ">${count}</div>`;
 }
 
+// ======== 降级列表视图（地图加载失败时使用） ========
+
+function FallbackListView({
+  cityGroups,
+  allCars,
+  onSelectCar,
+}: {
+  cityGroups: CityGroup[];
+  allCars: Car[];
+  onSelectCar: (car: Car) => void;
+}) {
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
+  const cityCars = useMemo(
+    () => (selectedCity ? getCarsByCity(allCars, selectedCity) : []),
+    [allCars, selectedCity]
+  );
+
+  if (selectedCity) {
+    const group = cityGroups.find((g) => g.id === selectedCity);
+    return (
+      <div className="flex-1 flex flex-col bg-[var(--color-bg)] overflow-hidden">
+        {/* 顶部栏 */}
+        <div className="shrink-0 flex items-center gap-2 px-4 py-3 glass border-b border-[var(--color-border)]">
+          <button
+            onClick={() => setSelectedCity(null)}
+            className="flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回
+          </button>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-4 h-4 text-[var(--color-primary)]" />
+            <span className="text-sm font-bold text-[var(--color-text)]">{group?.name}</span>
+            <span className="text-xs text-[var(--color-text-secondary)]">{cityCars.length} 辆</span>
+          </div>
+        </div>
+
+        {/* 车辆列表 */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {cityCars.map((car) => (
+            <button
+              key={car.id}
+              onClick={() => onSelectCar(car)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow text-left"
+            >
+              <div className="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
+                <img
+                  src={car.photos[0]}
+                  alt={`${car.brand} ${car.model}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-bold text-[var(--color-text)]">{car.brand} {car.model}</span>
+                  {car.ipTags.slice(0, 2).map((tag) => (
+                    <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] text-white">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1 truncate">{car.nickname}</p>
+              </div>
+            </button>
+          ))}
+          {cityCars.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <MapPin className="w-10 h-10 mb-2 opacity-20 text-[var(--color-text-secondary)]" />
+              <p className="text-sm text-[var(--color-text-secondary)]">该城市暂无痛车</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 城市列表
+  return (
+    <div className="flex-1 flex flex-col bg-[var(--color-bg)] overflow-hidden">
+      <div className="shrink-0 px-4 py-3 glass border-b border-[var(--color-border)]">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-[var(--color-secondary)]" />
+          <span className="text-sm font-medium text-[var(--color-text)]">地图加载失败，已切换为列表模式</span>
+        </div>
+        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+          全国 {allCars.length} 辆痛车 · 覆盖 {cityGroups.length} 个城市
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="grid grid-cols-2 gap-3">
+          {cityGroups.map((group) => (
+            <button
+              key={group.id}
+              onClick={() => setSelectedCity(group.id)}
+              className="flex flex-col items-center justify-center p-4 rounded-xl bg-white shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary)] flex items-center justify-center text-white font-bold text-lg mb-2">
+                {group.count}
+              </div>
+              <span className="text-sm font-medium text-[var(--color-text)]">{group.name}</span>
+              <span className="text-xs text-[var(--color-text-secondary)]">{group.province}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MapView({ allCars, searchQuery, onCityChange }: MapViewProps) {
-  const { ready, error } = useAMap();
+  const { ready, error, delaying } = useAMap();
   const [mapReady, setMapReady] = useState(false);
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
@@ -115,7 +228,6 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
 
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // 使用 requestAnimationFrame 确保容器布局完成后再初始化地图
     const initTimer = requestAnimationFrame(() => {
       if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -130,8 +242,6 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
 
       mapInstanceRef.current.addControl(new AMap.Scale());
 
-      // 监听地图完全加载完成事件后再渲染marker
-      // 蜂窝网络下地图内部模块加载较慢，立即添加marker可能失败
       let completeHandled = false;
       const onComplete = () => {
         if (completeHandled) return;
@@ -140,7 +250,6 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
       };
       mapInstanceRef.current.on('complete', onComplete);
 
-      // 超时兜底：8秒后强制设置为ready，防止complete事件不触发
       fallbackTimer = setTimeout(onComplete, 8000);
     });
 
@@ -156,11 +265,9 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
     const AMap = window.AMap;
     const map = mapInstanceRef.current;
 
-    // 清除旧标记
     cityMarkersRef.current.forEach((m) => map.remove(m));
     cityMarkersRef.current = [];
 
-    // 为每个有车辆的城市分组添加聚合标记
     cityGroups.forEach((group) => {
       const marker = new AMap.Marker({
         position: [group.lng, group.lat],
@@ -186,22 +293,18 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
     const map = mapInstanceRef.current;
 
     if (!selectedCity) {
-      // 返回全国视图：清除车辆标记，恢复缩放
       markersRef.current.forEach((m) => map.remove(m));
       markersRef.current = [];
       map.setZoomAndCenter(4, [105, 35]);
       return;
     }
 
-    // 清除全国视图的城市标记
     cityMarkersRef.current.forEach((m) => map.remove(m));
     cityMarkersRef.current = [];
 
-    // 清除旧车辆标记
     markersRef.current.forEach((m) => map.remove(m));
     markersRef.current = [];
 
-    // 添加该城市的车辆标记
     const group = cityGroups.find((g) => g.id === selectedCity);
     if (!group) return;
 
@@ -223,7 +326,6 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
       markersRef.current.push(marker);
     });
 
-    // 自动调整视野到该城市
     if (cityCars.length > 0) {
       map.setZoomAndCenter(11, [group.lng, group.lat]);
     } else {
@@ -259,6 +361,17 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
     setCardPos(null);
   }, []);
 
+  // 延迟加载中：地图脚本尚未开始加载
+  if (delaying) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#e8e4f0] via-[#f0ecf8] to-[#e0d8f0]">
+        <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin mb-3" />
+        <p className="text-sm text-[var(--color-text-secondary)]">正在准备地图...</p>
+        <p className="text-xs text-[var(--color-text-secondary)] mt-1">你可以先登录或注册账号</p>
+      </div>
+    );
+  }
+
   // 加载中状态
   if (!ready && !error) {
     return (
@@ -269,15 +382,17 @@ export default function MapView({ allCars, searchQuery, onCityChange }: MapViewP
     );
   }
 
-  // 加载失败状态
+  // 加载失败状态：显示降级列表视图
   if (error) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#e8e4f0] via-[#f0ecf8] to-[#e0d8f0]">
-        <AlertCircle className="w-10 h-10 text-[var(--color-secondary)] mb-3" />
-        <p className="text-sm font-medium text-[var(--color-text)] mb-1">地图加载失败</p>
-        <p className="text-xs text-[var(--color-text-secondary)]">{error}</p>
-        <p className="text-xs text-[var(--color-text-secondary)] mt-2">请检查网络连接后刷新页面</p>
-      </div>
+      <>
+        <FallbackListView
+          cityGroups={cityGroups}
+          allCars={filteredCars}
+          onSelectCar={setSelectedCar}
+        />
+        {selectedCar && <CarCard car={selectedCar} onClose={handleCarClose} />}
+      </>
     );
   }
 

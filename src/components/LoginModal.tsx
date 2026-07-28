@@ -30,6 +30,16 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     return null;
   };
 
+  // 超时包装：蜂窝网络下认证请求可能长时间无响应
+  function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMsg: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(timeoutMsg)), ms)
+      ),
+    ]);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -44,29 +54,45 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     if (isSignUp) {
-      const { data, error } = await signUpWithEmail(email.trim(), password);
-      setLoading(false);
-      if (error) {
-        setErrorMsg(error.message === 'User already registered'
-          ? '该邮箱已注册，请直接登录'
-          : `注册失败: ${error.message}`);
-      } else if (data?.session) {
-        // 无需邮箱验证，注册后直接登录
-        onClose();
-      } else {
-        // 需要邮箱验证
-        setSuccessMsg('注册成功！请检查邮箱点击验证链接，验证后即可登录');
-        setIsSignUp(false);
+      try {
+        const { data, error } = await withTimeout(
+          signUpWithEmail(email.trim(), password),
+          15000,
+          '网络超时，请切换网络后重试'
+        );
+        setLoading(false);
+        if (error) {
+          setErrorMsg(error.message === 'User already registered'
+            ? '该邮箱已注册，请直接登录'
+            : `注册失败: ${error.message}`);
+        } else if (data?.session) {
+          onClose();
+        } else {
+          setSuccessMsg('注册成功！请检查邮箱点击验证链接，验证后即可登录');
+          setIsSignUp(false);
+        }
+      } catch (err) {
+        setLoading(false);
+        setErrorMsg(err instanceof Error ? err.message : '注册失败，请重试');
       }
     } else {
-      const { error } = await signInWithEmail(email.trim(), password);
-      setLoading(false);
-      if (error) {
-        setErrorMsg(error.message === 'Invalid login credentials'
-          ? '邮箱或密码错误'
-          : `登录失败: ${error.message}`);
-      } else {
-        onClose();
+      try {
+        const { error } = await withTimeout(
+          signInWithEmail(email.trim(), password),
+          15000,
+          '网络超时，请切换网络后重试'
+        );
+        setLoading(false);
+        if (error) {
+          setErrorMsg(error.message === 'Invalid login credentials'
+            ? '邮箱或密码错误'
+            : `登录失败: ${error.message}`);
+        } else {
+          onClose();
+        }
+      } catch (err) {
+        setLoading(false);
+        setErrorMsg(err instanceof Error ? err.message : '登录失败，请重试');
       }
     }
   };

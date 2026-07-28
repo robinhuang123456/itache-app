@@ -1764,9 +1764,18 @@ async function loadDemoCars(): Promise<Car[]> {
 }
 
 // 获取所有车辆（Supabase demo + Supabase 用户数据，降级到前端 CARS 常量）
+// 蜂窝网络下 Supabase 请求可能超时，10秒后自动降级到本地数据
 export async function getAllCars(): Promise<Car[]> {
   try {
-    const [demoCars, userCars] = await Promise.all([loadDemoCars(), loadUserCars()]);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase timeout')), 10000)
+    );
+
+    const [demoCars, userCars] = await Promise.race([
+      Promise.all([loadDemoCars(), loadUserCars()]),
+      timeoutPromise,
+    ]);
+
     const total = demoCars.length + userCars.length;
     // 如果 Supabase 返回了数据，使用它
     if (total > 0) {
