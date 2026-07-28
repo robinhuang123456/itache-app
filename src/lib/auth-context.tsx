@@ -1,14 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { User, Session, AuthError } from '@supabase/supabase-js';
+import type { User, Session, AuthError, AuthResponse } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 
 interface UserContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUpWithEmail: (email: string, password: string) => Promise<AuthResponse>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   isOpenLoginModal: boolean;
@@ -20,7 +20,7 @@ const UserContext = createContext<UserContextType>({
   user: null,
   session: null,
   loading: true,
-  signUpWithEmail: async () => ({ error: null }),
+  signUpWithEmail: async () => ({ data: { user: null, session: null }, error: null }),
   signInWithEmail: async () => ({ error: null }),
   signOut: async () => {},
   isOpenLoginModal: false,
@@ -56,15 +56,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   // 邮箱注册
   const signUpWithEmail = useCallback(
-    async (email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({
+    async (email: string, password: string): Promise<AuthResponse> => {
+      const response = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined,
         },
       });
-      return { error };
+      return response;
     },
     []
   );

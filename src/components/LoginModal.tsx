@@ -44,14 +44,18 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setLoading(true);
 
     if (isSignUp) {
-      const { error } = await signUpWithEmail(email.trim(), password);
+      const { data, error } = await signUpWithEmail(email.trim(), password);
       setLoading(false);
       if (error) {
         setErrorMsg(error.message === 'User already registered'
           ? '该邮箱已注册，请直接登录'
           : `注册失败: ${error.message}`);
+      } else if (data?.session) {
+        // 无需邮箱验证，注册后直接登录
+        onClose();
       } else {
-        setSuccessMsg('注册成功！请检查邮箱完成验证（如无需验证则可直接登录）');
+        // 需要邮箱验证
+        setSuccessMsg('注册成功！请检查邮箱点击验证链接，验证后即可登录');
         setIsSignUp(false);
       }
     } else {
@@ -179,11 +183,21 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
               className="w-full btn-gradient flex items-center justify-center gap-2 py-3 text-sm disabled:opacity-70"
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  请稍候...
+                </>
               ) : (
                 isSignUp ? '注册' : '登录'
               )}
             </button>
+
+            {/* 网络慢提示 */}
+            {loading && (
+              <p className="text-[11px] text-[var(--color-text-secondary)] text-center">
+                网络较慢请耐心等待，不要重复点击
+              </p>
+            )}
           </form>
 
           {/* 底部提示 */}
