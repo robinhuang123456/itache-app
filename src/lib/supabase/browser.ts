@@ -27,8 +27,8 @@ const REFRESH_TOKEN_KEY = 'sb-refresh-token';
 const USER_KEY = 'sb-user';
 
 // 请求超时
-const AUTH_TIMEOUT = 10000; // 认证请求 10 秒超时
-const DATA_TIMEOUT = 8000; // 数据请求 8 秒超时
+const AUTH_TIMEOUT = 15000; // 认证请求 15 秒超时（蜂窝网络下需要更长时间）
+const DATA_TIMEOUT = 10000; // 数据请求 10 秒超时
 
 interface SupabaseUser {
   id: string;
@@ -143,7 +143,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
     return { user, error: null };
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return { user: null, error: '网络超时，请检查网络后重试' };
+      return { user: null, error: '登录超时，请尝试切换 WiFi/4G 后重试' };
     }
     return { user: null, error: '连接服务器失败，请稍后重试' };
   }
@@ -188,9 +188,9 @@ export async function signUpWithEmail(email: string, password: string): Promise<
     return { user: null, error: null, autoLogin: false };
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return { user: null, error: '网络超时，请检查网络后重试', autoLogin: false };
+      return { user: null, error: '注册超时，请尝试切换 WiFi/4G 后重试，或清除浏览器缓存后重试', autoLogin: false };
     }
-    return { user: null, error: '连接服务器失败，请稍后重试', autoLogin: false };
+    return { user: null, error: '连接服务器失败，请稍后重试。如多次失败请尝试清除浏览器缓存或使用无痕模式', autoLogin: false };
   }
 }
 
